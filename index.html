@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GazeTracker - Real Time Eye Tracking</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- WebGazer.js from CDN -->
+    <script src="https://webgazer.cs.brown.edu/webgazer.js?" defer></script>
+    <script src="script.js" defer></script>
+</head>
+<body>
+
+    <div id="calibration-overlay">
+        <div class="calibration-instructions">
+            <h1>Calibration</h1>
+            <p>Click each of the 9 red dots as they appear. Keep your head still.</p>
+        </div>
+        <!-- Calibration points will be generated here -->
+    </div>
+
+    <div id="main-interface" class="hidden">
+        <div id="gaze-plot" class="gaze-point"></div>
+        <div class="status-panel">
+            <p><b>Status:</b> <span id="status-text">Initializing...</span></p>
+            <p><b>Gaze X:</b> <span id="gaze-x">0</span></p>
+            <p><b>Gaze Y:</b> <span id="gaze-y">0</span></p>
+            <p><b>Looking:</b> <span id="looking-at-screen">Yes</span></p>
+            <button id="re-calibrate-btn">Recalibrate</button>
+        </div>
+    </div>
+
+</body>
+</html>
