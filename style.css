@@ -6,6 +6,33 @@ body {
     overflow: hidden;
     font-family: 'Inter', sans-serif;
     background-color: #f0f2f5;
+    position: relative;
+    /* Ensure we can position children absolutely if needed */
+}
+
+/* Video Container */
+#video-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 800px;
+    height: 0;
+    padding-bottom: 45%;
+    /* Aspect ratio for 16:9 approx, adjusted for width */
+    background: #000;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    z-index: 50;
+    /* Below status panel but visible */
+}
+
+#player {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
 }
 
 /* Gaze Plotter */
@@ -17,8 +44,10 @@ body {
     background-color: rgba(255, 0, 0, 0.7);
     border: 2px solid white;
     z-index: 9999;
-    pointer-events: none; /* Let clicks pass through */
-    transform: translate(-50%, -50%); /* Center the dot */
+    pointer-events: none;
+    /* Let clicks pass through */
+    transform: translate(-50%, -50%);
+    /* Center the dot */
     display: none;
 }
 
@@ -27,16 +56,70 @@ body {
     position: fixed;
     top: 20px;
     right: 20px;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 25px;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     z-index: 100;
+    transition: background-color 0.3s, transform 0.2s;
+    min-width: 200px;
+    text-align: center;
+}
+
+.status-panel.status-good {
+    border: 4px solid #4CAF50;
+    /* Green border */
+    background-color: #e8f5e9;
+}
+
+.status-panel.status-bad {
+    border: 4px solid #f44336;
+    /* Red border */
+    background-color: #ffebee;
+    transform: scale(1.05);
+    /* Slight pop */
 }
 
 .status-panel p {
-    margin: 5px 0;
-    font-size: 14px;
+    margin: 8px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+/* Make the "Looking" status huge */
+#looking-at-screen {
+    display: block;
+    margin-top: 10px;
+    font-size: 24px;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 8px;
+    border-radius: 6px;
+}
+
+.on-screen-text {
+    color: #2e7d32;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.off-screen-text {
+    color: #c62828;
+    background: rgba(244, 67, 54, 0.1);
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 
 button {
@@ -89,6 +172,7 @@ button:hover {
 }
 
 .calibration-point.clicked {
-    background-color: #4CAF50; /* Green when clicked */
+    background-color: #4CAF50;
+    /* Green when clicked */
     border-color: #333;
 }

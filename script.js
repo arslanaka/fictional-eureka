@@ -6,6 +6,11 @@ const REQUIRED_CLICKS_PER_POINT = 5; // User must click each point 5 times for b
 const TOTAL_CALIBRATION_POINTS = 9;
 let isCalibrated = false;
 
+// YouTube Player State
+let player;
+let isVideoPlaying = false;
+let isPlayerReady = false;
+
 // DOM Elements
 const calibrationOverlay = document.getElementById('calibration-overlay');
 const mainInterface = document.getElementById('main-interface');
@@ -25,9 +30,48 @@ const pointPositions = [
 
 window.addEventListener('load', async function () {
     init();
+    loadYouTubeAPI();
 
     recalibrateBtn.addEventListener('click', restartCalibration);
 });
+
+// YouTube API
+function loadYouTubeAPI() {
+    const tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+}
+
+function onYouTubeIframeAPIReady() {
+    player = new YT.Player('player', {
+        height: '100%',
+        width: '100%',
+        videoId: 'I-j_SMn8RRc',
+        playerVars: {
+            'playsinline': 1,
+            'controls': 1, // Allow manual controls too
+            'rel': 0
+        },
+        events: {
+            'onReady': onPlayerReady,
+            'onStateChange': onPlayerStateChange
+        }
+    });
+}
+
+function onPlayerReady(event) {
+    isPlayerReady = true;
+    console.log("YouTube Player Ready");
+}
+
+function onPlayerStateChange(event) {
+    if (event.data == YT.PlayerState.PLAYING) {
+        isVideoPlaying = true;
+    } else {
+        isVideoPlaying = false;
+    }
+}
 
 async function init() {
     // 1. Initialize WebGazer
@@ -146,16 +190,48 @@ function handleGaze(data) {
     // Using window.innerWidth / innerHeight ensures we check against the actual viewport
     const onScreen = (x >= 0 && x <= window.innerWidth && y >= 0 && y <= window.innerHeight);
 
+    const statusPanel = document.querySelector('.status-panel');
+
     if (onScreen) {
-        lookingEl.innerText = "Yes";
-        lookingEl.style.color = "green";
+        // ON SCREEN STATUS
+        lookingEl.innerText = "ON SCREEN";
+        lookingEl.className = "on-screen-text"; // Add prominent class
+
+        // Panel styling
+        statusPanel.classList.remove('status-bad');
+        statusPanel.classList.add('status-good');
+
+        // Show Pointer
         gazePlot.style.display = 'block';
         gazePlot.style.left = x + 'px';
         gazePlot.style.top = y + 'px';
     } else {
-        lookingEl.innerText = "No (Off-screen)";
-        lookingEl.style.color = "orange";
-        // Optionally hide or style the gaze plot differently when offscreen
-        // gazePlot.style.display = 'none'; 
+        // OFF SCREEN STATUS
+        lookingEl.innerText = "OFF SCREEN";
+        lookingEl.className = "off-screen-text"; // Add prominent class
+
+        // Panel styling
+        statusPanel.classList.remove('status-good');
+        statusPanel.classList.add('status-bad');
+
+        gazePlot.style.display = 'none';
+    }
+
+    // Video Control Logic
+    if (isPlayerReady && isCalibrated) {
+        if (onScreen) {
+            // Eye is on screen -> Play
+            if (!isVideoPlaying) {
+                // only play if it's currently paused/stopped and we haven't just triggered it
+                // We can simply call playVideo(), YouTube API handles the rest.
+                // To avoid spamming the API, we check the local state we track via events
+                player.playVideo();
+            }
+        } else {
+            // Eye is OFF screen -> Pause
+            if (isVideoPlaying) {
+                player.pauseVideo();
+            }
+        }
     }
 }
