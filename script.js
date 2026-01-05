@@ -97,22 +97,31 @@ async function init() {
     setupCalibration();
 }
 
+const calibrationOrder = [4, 0, 1, 2, 3, 5, 6, 7, 8]; // Center first, then TL->BR
+let currentCalibrationIndex = 0;
+
 function setupCalibration() {
     calibrationOverlay.classList.remove('hidden');
     mainInterface.classList.add('hidden');
+
+    // Reset state
+    currentCalibrationIndex = 0;
+
     calibrationOverlay.innerHTML = `
         <div class="calibration-instructions" style="position: absolute; top: 20%; text-align: center;">
             <h1>Calibration</h1>
-            <p>Click each red dot 5 times until it turns green.</p>
-            <p>Look exactly at the dot while clicking!</p>
+            <p>Click the RED DOT 5 times.</p>
+            <p>Keep your head still and look at the dot!</p>
         </div>
     `;
 
+    // Create all dots but only show the first one
     pointPositions.forEach((pos, index) => {
         const dot = document.createElement('div');
         dot.className = 'calibration-point';
         dot.style.left = pos[0] + '%';
         dot.style.top = pos[1] + '%';
+        dot.style.display = 'none'; // Force hidden by default
         dot.dataset.clicks = 0;
         dot.id = 'pt-' + index;
 
@@ -122,6 +131,21 @@ function setupCalibration() {
 
         calibrationOverlay.appendChild(dot);
     });
+
+    showNextCalibrationPoint();
+}
+
+function showNextCalibrationPoint() {
+    if (currentCalibrationIndex >= calibrationOrder.length) {
+        checkCalibrationComplete();
+        return;
+    }
+
+    const pointIndex = calibrationOrder[currentCalibrationIndex];
+    const dot = document.getElementById('pt-' + pointIndex);
+    if (dot) {
+        dot.style.display = 'block'; // Show current
+    }
 }
 
 function handleCalibrationClick(dot) {
@@ -131,27 +155,38 @@ function handleCalibrationClick(dot) {
 
     // Visual feedback opacity
     const opacity = Math.min(1, clicks / REQUIRED_CLICKS_PER_POINT);
-    dot.style.opacity = opacity < 0.2 ? 0.2 : opacity; // keep partially visible
+    dot.style.opacity = opacity < 0.2 ? 0.2 : opacity;
 
     if (clicks >= REQUIRED_CLICKS_PER_POINT) {
         dot.style.backgroundColor = '#4CAF50'; // Green
         dot.classList.add('done');
-    }
 
-    checkCalibrationComplete();
+        // Hide this dot and move to next
+        dot.style.display = 'none';
+
+        // FIX: Capture Reference Pose when clicking the CENTER point (Index 4)
+        if (dot.id === 'pt-4') {
+            const pose = FacePoseEstimator.estimate();
+            if (pose) {
+                referenceHeadPose = pose;
+                referenceEyeDist = pose.eyeDist; // Capture Reference Distance (IPD in pixels)
+                console.log("Reference Pose Updated (Center Click):", referenceHeadPose);
+            }
+        }
+
+        currentCalibrationIndex++;
+        showNextCalibrationPoint();
+    }
 }
 
 function checkCalibrationComplete() {
-    const allDots = document.querySelectorAll('.calibration-point');
-    const doneDots = document.querySelectorAll('.calibration-point.done');
-
-    if (doneDots.length === allDots.length) {
-        finishCalibration();
-    }
+    // With sequential logic, this is called at the end
+    finishCalibration();
 }
 
 function finishCalibration() {
     isCalibrated = true;
+
     calibrationOverlay.classList.add('hidden');
     mainInterface.classList.remove('hidden');
     gazePlot.style.display = 'block';
@@ -219,19 +254,227 @@ function handleGaze(data) {
 
     // Video Control Logic
     if (isPlayerReady && isCalibrated) {
-        if (onScreen) {
-            // Eye is on screen -> Play
-            if (!isVideoPlaying) {
-                // only play if it's currently paused/stopped and we haven't just triggered it
-                // We can simply call playVideo(), YouTube API handles the rest.
-                // To avoid spamming the API, we check the local state we track via events
-                player.playVideo();
+
+        // 1. Screen Edge Limitation (15% margin)
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const marginX = w * 0.15;
+        const marginY = h * 0.15;
+
+        // "On Screen" now means "On Safe Screen Area"
+        const inSafeZone = (x >= marginX && x <= (w - marginX) && y >= marginY && y <= (h - marginY));
+
+        // 2. Face Movement Tracking (approx 30 degrees)
+        const currentPose = FacePoseEstimator.estimate();
+        let isFaceAligned = true;
+        let faceErrorMsg = "";
+
+        if (currentPose && referenceHeadPose) {
+            // Check Yaw (Left/Right)
+            const yawDiff = Math.abs(currentPose.yaw - referenceHeadPose.yaw);
+            // Check Pitch (Up/Down)
+            const pitchDiff = Math.abs(currentPose.pitch - referenceHeadPose.pitch);
+            // Check Roll (Tilt)
+            const rollDiff = Math.abs(currentPose.roll - referenceHeadPose.roll);
+
+            // --- Adaptive Distance Compensation ---
+            let distanceRatio = 1.0;
+            if (referenceEyeDist && currentPose.eyeDist) {
+                // If current eye dist is smaller, user is farther -> Ratio < 1.0
+                // If current eye dist is larger, user is closer -> Ratio > 1.0
+                distanceRatio = currentPose.eyeDist / referenceEyeDist;
+
+                // --- Strict Distance Limits (User Request) ---
+                // Allow +/- 20% variation. Pause if outside.
+                if (distanceRatio < 0.8) {
+                    isFaceAligned = false;
+                    faceErrorMsg = "Too Far! Move Closer";
+                } else if (distanceRatio > 1.2) {
+                    isFaceAligned = false;
+                    faceErrorMsg = "Too Close! Move Back";
+                }
+
+                // Clamp ratio to avoid extreme values (e.g. 0.5x to 2.0x) for threshold scaling
+                // even if we pause, we still calc expected thresholds for debug
+                distanceRatio = Math.max(0.5, Math.min(2.0, distanceRatio));
             }
+
+            // Base Thresholds (at calibrated distance)
+            const BASE_YAW_THRESHOLD = 0.15;
+            const BASE_PITCH_THRESHOLD = 0.20;
+            const BASE_ROLL_THRESHOLD = 0.5;
+
+            // Effective Thresholds (Scaled by Distance)
+            // If user is Farther (Ratio 0.5), we need STRICTOR loop (0.15 * 0.5 = 0.075)
+            // Wait, logic check:
+            // Farther = Smaller Angle subtended by screen = Smaller Rotation needed to look away.
+            // YES. We should SCALE DOWN the threshold.
+            const EFFECTIVE_YAW = BASE_YAW_THRESHOLD * distanceRatio;
+            const EFFECTIVE_PITCH = BASE_PITCH_THRESHOLD * distanceRatio;
+
+            // Debug Stats
+            let debugEl = document.getElementById('debug-stats');
+            if (!debugEl) {
+                debugEl = document.createElement('div');
+                debugEl.id = 'debug-stats';
+                debugEl.style.position = 'fixed';
+                debugEl.style.bottom = '10px';
+                debugEl.style.left = '10px';
+                debugEl.style.background = 'rgba(0,0,0,0.7)';
+                debugEl.style.color = '#fff';
+                debugEl.style.padding = '10px';
+                debugEl.style.zIndex = '9999';
+                debugEl.style.fontSize = '12px';
+                document.body.appendChild(debugEl);
+            }
+            debugEl.innerHTML = `
+                DIST RATIO: ${distanceRatio.toFixed(2)}x<br>
+                YAW: ${yawDiff.toFixed(3)} / ${EFFECTIVE_YAW.toFixed(3)}<br>
+                PITCH: ${pitchDiff.toFixed(3)} / ${EFFECTIVE_PITCH.toFixed(3)}<br>
+                ROLL: ${rollDiff.toFixed(3)}
+            `;
+
+            if (yawDiff > EFFECTIVE_YAW) {
+                isFaceAligned = false;
+                faceErrorMsg = "Face turned too far";
+            }
+            if (pitchDiff > EFFECTIVE_PITCH) {
+                isFaceAligned = false;
+                faceErrorMsg = "Face looked up/down too far";
+            }
+            if (rollDiff > BASE_ROLL_THRESHOLD) {
+                isFaceAligned = false;
+                faceErrorMsg = "Head tilted too far";
+            }
+        }
+
+        // Combined Decision
+        const shouldPlay = inSafeZone && isFaceAligned;
+        const safeZoneInd = document.getElementById('safe-zone-indicator');
+        const warningOverlay = document.getElementById('warning-overlay');
+
+        // Show indicator when tracking
+        if (safeZoneInd) {
+            safeZoneInd.classList.remove('hidden');
+            if (!inSafeZone) safeZoneInd.classList.add('violation');
+            else safeZoneInd.classList.remove('violation');
+        }
+
+        if (shouldPlay) {
+            // PLAY
+            if (warningOverlay) warningOverlay.classList.add('hidden');
+
+            if (!isVideoPlaying) player.playVideo();
+
+            statusText.innerText = "Active - Watching";
+            statusText.style.color = "green";
+            statusPanel.classList.remove('status-bad');
+            statusPanel.classList.add('status-good');
+
+            lookingEl.innerText = "SAFE ZONE";
+            lookingEl.className = "on-screen-text";
         } else {
-            // Eye is OFF screen -> Pause
-            if (isVideoPlaying) {
-                player.pauseVideo();
+            // PAUSE
+            if (isVideoPlaying) player.pauseVideo();
+
+            statusPanel.classList.remove('status-good');
+            statusPanel.classList.add('status-bad');
+            statusText.style.color = "red";
+
+            let warningText = "PAUSED";
+
+            if (!inSafeZone) {
+                warningText = "LOOK AT CENTER";
+                statusText.innerText = "Paused: Gaze outside safe zone (15%)";
+                lookingEl.innerText = "OFF LIMITS";
+                lookingEl.className = "off-screen-text";
+            } else if (!isFaceAligned) {
+                warningText = (faceErrorMsg || "BAD POSE").toUpperCase();
+                statusText.innerText = "Paused: " + faceErrorMsg;
+                lookingEl.innerText = "BAD POSE";
+                lookingEl.className = "off-screen-text";
+            }
+
+            if (warningOverlay) {
+                warningOverlay.innerText = warningText;
+                warningOverlay.classList.remove('hidden');
             }
         }
     }
 }
+
+// --- Face Pose Helper ---
+let referenceHeadPose = null;
+let referenceEyeDist = null;
+
+const FacePoseEstimator = {
+    estimate: function () {
+        const tracker = webgazer.getTracker();
+        const positions = tracker ? tracker.getPositions() : null;
+        if (!positions || positions.length === 0) return null;
+
+        // Check if using standard CLM (71 points) or FaceMesh (468 points)
+        // FaceMesh usually returns huge array
+        const isFaceMesh = positions.length > 100;
+
+        if (isFaceMesh) {
+            // FaceMesh Keypoints (approximate)
+            // 1: Nose Tip
+            // 33: Left Eye Outer
+            // 263: Right Eye Outer
+            // 152: Chin
+            // 10: Top Head
+
+            // Note: Indices in array might be different if it's the raw flat array vs object
+            // WebGazer's getPositions usually returns Array of [x, y] or [x, y, z]
+
+            // Let's assume standard MediaPipe mesh indices
+            const nose = positions[1];
+            const leftEye = positions[33];
+            const rightEye = positions[263];
+            const chin = positions[152];
+            const top = positions[10];
+
+            if (!nose || !leftEye || !rightEye) return null;
+
+            // Simple geometry for relative rotation 
+
+            // YAW: Relative horizontal position of nose between eyes
+            // 0.5 = center. < 0.5 left, > 0.5 right
+            const eyeDist = Math.hypot(rightEye[0] - leftEye[0], rightEye[1] - leftEye[1]);
+            const noseToLeft = Math.hypot(nose[0] - leftEye[0], nose[1] - leftEye[1]);
+
+            // Project LN onto LR
+            const vecLR = { x: rightEye[0] - leftEye[0], y: rightEye[1] - leftEye[1] };
+            const vecLN = { x: nose[0] - leftEye[0], y: nose[1] - leftEye[1] };
+            const proj = (vecLN.x * vecLR.x + vecLN.y * vecLR.y) / (eyeDist * eyeDist);
+            const yaw = proj - 0.5; // Center should be near 0
+
+            // PITCH: Refined.
+            // Old method used chin, which moves with mouth.
+            // New method: Vertical distance of Nose from Eye Line, normalized by Face Width (Eye Distance).
+            // When looking UP, nose gets closer to eyes (smaller dy).
+            // When looking DOWN, nose gets further (larger dy).
+            const eyeMidY = (leftEye[1] + rightEye[1]) / 2;
+            const noseDy = nose[1] - eyeMidY; // Positive (nose is below eyes usually)
+
+            // Normalized Pitch ratio
+            const pitch = noseDy / eyeDist;
+
+            // ROLL: Angle of eye line
+            const roll = Math.atan2(rightEye[1] - leftEye[1], rightEye[0] - leftEye[0]);
+
+            return { yaw, pitch, roll, eyeDist };
+
+        } else {
+            // CLM Trackr (71 points)
+            // 62: Nose Tip
+            // 27: Left Eye Outer
+            // 32: Right Eye Outer
+            // 7: Chin
+
+            // Fallback if older tracker (unlikely given previous inspection, but safety first)
+            return null;
+        }
+    }
+};

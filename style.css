@@ -16,15 +16,65 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 80%;
+    width: 65%;
+    /* Reduced from 80% to avoid overlap with panel */
     max-width: 800px;
     height: 0;
-    padding-bottom: 45%;
-    /* Aspect ratio for 16:9 approx, adjusted for width */
+    padding-bottom: 36.56%;
+    /* 16:9 of 65% width */
     background: #000;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     z-index: 50;
-    /* Below status panel but visible */
+}
+
+/* ... (previous styles) ... */
+
+/* Status Panel */
+.status-panel {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 100;
+    transition: background-color 0.3s, transform 0.2s;
+    width: 250px;
+    /* Fixed width to prevent resizing jitter */
+    box-sizing: border-box;
+    text-align: center;
+}
+
+/* ... (previous styles) ... */
+
+/* Safe Zone Indicator */
+#safe-zone-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70%;
+    height: 70%;
+    /* border: 3px dashed rgba(0, 255, 0, 0.3); Removed green outline */
+    border: none;
+    border-radius: 20px;
+    pointer-events: none;
+    z-index: 40;
+    box-sizing: border-box;
+    display: block;
+}
+
+#safe-zone-indicator.hidden {
+    display: none;
+}
+
+#safe-zone-indicator.violation {
+    /* Only show border on violation if desired, user said hide "internal green outline", implying keeping functionality */
+    /* So we keep the violation RED border acting as feedback, or should we hide that too? */
+    /* User said "hide from ui" referring to the internal green outline. Violation is red. I'll keep red. */
+    border: 5px solid rgba(255, 0, 0, 0.5);
+    background: rgba(255, 0, 0, 0.05);
 }
 
 #player {
@@ -54,16 +104,46 @@ body {
 /* Status Panel */
 .status-panel {
     position: fixed;
-    top: 20px;
-    right: 20px;
+    top: 10px;
+    right: 10px;
     background: rgba(255, 255, 255, 0.95);
-    padding: 25px;
+    padding: 20px;
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     z-index: 100;
     transition: background-color 0.3s, transform 0.2s;
-    min-width: 200px;
+    width: 250px;
+    /* Fixed width */
+    box-sizing: border-box;
     text-align: center;
+}
+
+/* ... */
+
+/* Safe Zone Indicator */
+#safe-zone-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70%;
+    height: 70%;
+    /* No default border */
+    border: none;
+    border-radius: 20px;
+    pointer-events: none;
+    z-index: 40;
+    box-sizing: border-box;
+    display: block;
+}
+
+#safe-zone-indicator.hidden {
+    display: none;
+}
+
+#safe-zone-indicator.violation {
+    border: 5px solid rgba(255, 0, 0, 0.5);
+    background: rgba(255, 0, 0, 0.05);
 }
 
 .status-panel.status-good {
@@ -175,4 +255,56 @@ button:hover {
     background-color: #4CAF50;
     /* Green when clicked */
     border-color: #333;
+}
+
+/* Safe Zone Indicator */
+#safe-zone-indicator {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 70%;
+    height: 70%;
+    border: none;
+    /* Hidden default border */
+    border-radius: 20px;
+    pointer-events: none;
+    z-index: 40;
+    box-sizing: border-box;
+    display: block;
+}
+
+#safe-zone-indicator.hidden {
+    display: none;
+}
+
+#safe-zone-indicator.violation {
+    border: none;
+    background: transparent;
+}
+
+/* Warning Overlay */
+#warning-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px 40px;
+    border-radius: 10px;
+    font-size: 24px;
+    font-weight: bold;
+    z-index: 1000;
+    text-align: center;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 300px;
+}
+
+#warning-overlay.hidden {
+    display: none;
+    opacity: 0;
 }
