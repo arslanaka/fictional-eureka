@@ -48,7 +48,7 @@ body {
 
 /* ... (previous styles) ... */
 
-/* Safe Zone Indicator */
+/* Safe Zone Indicator - Hidden from UI (no visual borders) */
 #safe-zone-indicator {
     position: fixed;
     top: 50%;
@@ -56,7 +56,6 @@ body {
     transform: translate(-50%, -50%);
     width: 70%;
     height: 70%;
-    /* border: 3px dashed rgba(0, 255, 0, 0.3); Removed green outline */
     border: none;
     border-radius: 20px;
     pointer-events: none;
@@ -70,11 +69,9 @@ body {
 }
 
 #safe-zone-indicator.violation {
-    /* Only show border on violation if desired, user said hide "internal green outline", implying keeping functionality */
-    /* So we keep the violation RED border acting as feedback, or should we hide that too? */
-    /* User said "hide from ui" referring to the internal green outline. Violation is red. I'll keep red. */
-    border: 5px solid rgba(255, 0, 0, 0.5);
-    background: rgba(255, 0, 0, 0.05);
+    /* Both green and red borders hidden as per user request */
+    border: none;
+    background: transparent;
 }
 
 #player {
@@ -120,31 +117,7 @@ body {
 
 /* ... */
 
-/* Safe Zone Indicator */
-#safe-zone-indicator {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 70%;
-    height: 70%;
-    /* No default border */
-    border: none;
-    border-radius: 20px;
-    pointer-events: none;
-    z-index: 40;
-    box-sizing: border-box;
-    display: block;
-}
 
-#safe-zone-indicator.hidden {
-    display: none;
-}
-
-#safe-zone-indicator.violation {
-    border: 5px solid rgba(255, 0, 0, 0.5);
-    background: rgba(255, 0, 0, 0.05);
-}
 
 .status-panel.status-good {
     border: 4px solid #4CAF50;
@@ -257,31 +230,7 @@ button:hover {
     border-color: #333;
 }
 
-/* Safe Zone Indicator */
-#safe-zone-indicator {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 70%;
-    height: 70%;
-    border: none;
-    /* Hidden default border */
-    border-radius: 20px;
-    pointer-events: none;
-    z-index: 40;
-    box-sizing: border-box;
-    display: block;
-}
 
-#safe-zone-indicator.hidden {
-    display: none;
-}
-
-#safe-zone-indicator.violation {
-    border: none;
-    background: transparent;
-}
 
 /* Warning Overlay */
 #warning-overlay {

@@ -255,11 +255,11 @@ function handleGaze(data) {
     // Video Control Logic
     if (isPlayerReady && isCalibrated) {
 
-        // 1. Screen Edge Limitation (15% margin)
+        // 1. Screen Edge Limitation (Asymmetric margins for better vertical tracking)
         const w = window.innerWidth;
         const h = window.innerHeight;
-        const marginX = w * 0.15;
-        const marginY = h * 0.15;
+        const marginX = w * 0.15;  // 15% margin for left/right (works well)
+        const marginY = h * 0.28;  // 28% margin for top/bottom (stricter for reliability)
 
         // "On Screen" now means "On Safe Screen Area"
         const inSafeZone = (x >= marginX && x <= (w - marginX) && y >= marginY && y <= (h - marginY));
@@ -300,9 +300,9 @@ function handleGaze(data) {
             }
 
             // Base Thresholds (at calibrated distance)
-            const BASE_YAW_THRESHOLD = 0.15;
-            const BASE_PITCH_THRESHOLD = 0.20;
-            const BASE_ROLL_THRESHOLD = 0.5;
+            const BASE_YAW_THRESHOLD = 0.15;   // Left/Right head turn
+            const BASE_PITCH_THRESHOLD = 0.12; // Up/Down head movement (reduced from 0.20 for stricter detection)
+            const BASE_ROLL_THRESHOLD = 0.5;   // Head tilt
 
             // Effective Thresholds (Scaled by Distance)
             // If user is Farther (Ratio 0.5), we need STRICTOR loop (0.15 * 0.5 = 0.075)
@@ -384,8 +384,8 @@ function handleGaze(data) {
             let warningText = "PAUSED";
 
             if (!inSafeZone) {
-                warningText = "LOOK AT CENTER";
-                statusText.innerText = "Paused: Gaze outside safe zone (15%)";
+                warningText = "EYE GAZE OFF SCREEN";
+                statusText.innerText = "Paused: Gaze outside safe zone";
                 lookingEl.innerText = "OFF LIMITS";
                 lookingEl.className = "off-screen-text";
             } else if (!isFaceAligned) {
