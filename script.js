@@ -23,9 +23,9 @@ const recalibrateBtn = document.getElementById('re-calibrate-btn');
 
 // Calibration Points (Percentage based: [left, top])
 const pointPositions = [
-    [10, 10], [50, 10], [90, 10],
-    [10, 50], [50, 50], [90, 50],
-    [10, 90], [50, 90], [90, 90]
+    [2, 2], [50, 2], [98, 2],
+    [2, 50], [50, 50], [98, 50],
+    [2, 98], [50, 98], [98, 98]
 ];
 
 window.addEventListener('load', async function () {
@@ -237,7 +237,7 @@ function handleGaze(data) {
         statusPanel.classList.add('status-good');
 
         // Show Pointer
-        gazePlot.style.display = 'block';
+        // REMOVED: gazePlot.style.display = 'block'; (Visibility now strictly coupled to Safe Zone in Video Logic)
         gazePlot.style.left = x + 'px';
         gazePlot.style.top = y + 'px';
     } else {
@@ -259,10 +259,13 @@ function handleGaze(data) {
         const w = window.innerWidth;
         const h = window.innerHeight;
         const marginX = w * 0.15;  // 15% margin for left/right (works well)
-        const marginY = h * 0.28;  // 28% margin for top/bottom (stricter for reliability)
+
+        // Precise Top/Bottom Margins (User Request: "bottom is not tracking properly")
+        const marginTop = h * 0.20;    // 20% Top
+        const marginBottom = h * 0.30; // 30% Bottom (Stricter to catch "looking at phone")
 
         // "On Screen" now means "On Safe Screen Area"
-        const inSafeZone = (x >= marginX && x <= (w - marginX) && y >= marginY && y <= (h - marginY));
+        const inSafeZone = (x >= marginX && x <= (w - marginX) && y >= marginTop && y <= (h - marginBottom));
 
         // 2. Face Movement Tracking (approx 30 degrees)
         const currentPose = FacePoseEstimator.estimate();
@@ -373,9 +376,15 @@ function handleGaze(data) {
 
             lookingEl.innerText = "SAFE ZONE";
             lookingEl.className = "on-screen-text";
+
+            // STRICT VISIBILITY: Only show dot when in Safe Zone + Good Pose
+            gazePlot.style.display = 'block';
         } else {
             // PAUSE
             if (isVideoPlaying) player.pauseVideo();
+
+            // Hide gaze cursor when paused (as requested)
+            gazePlot.style.display = 'none';
 
             statusPanel.classList.remove('status-good');
             statusPanel.classList.add('status-bad');
