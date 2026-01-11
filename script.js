@@ -255,17 +255,17 @@ function handleGaze(data) {
     // Video Control Logic
     if (isPlayerReady && isCalibrated) {
 
-        // 1. Screen Edge Limitation (Asymmetric margins for better vertical tracking)
+        // 1. Screen Edge Limitation (Reduced margins to 7% based on user feedback "too close")
         const w = window.innerWidth;
         const h = window.innerHeight;
-        const marginX = w * 0.15;  // 15% margin for left/right (works well)
 
-        // Precise Top/Bottom Margins (User Request: "bottom is not tracking properly")
-        const marginTop = h * 0.20;    // 20% Top
-        const marginBottom = h * 0.30; // 30% Bottom (Stricter to catch "looking at phone")
+        // Unified Margin (User Request: "too close on right side" -> push boundary outwards)
+        const marginRatio = 0.07; // Reduced from 0.15 to 0.07 (7%)
+        const marginX = w * marginRatio;
+        const marginY = h * marginRatio;
 
         // "On Screen" now means "On Safe Screen Area"
-        const inSafeZone = (x >= marginX && x <= (w - marginX) && y >= marginTop && y <= (h - marginBottom));
+        const inSafeZone = (x >= marginX && x <= (w - marginX) && y >= marginY && y <= (h - marginY));
 
         // 2. Face Movement Tracking (approx 30 degrees)
         const currentPose = FacePoseEstimator.estimate();

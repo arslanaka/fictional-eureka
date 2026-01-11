@@ -217,11 +217,13 @@ button:hover {
     position: fixed;
     cursor: pointer;
     border: 3px solid transparent;
+    border: 3px solid transparent;
     transition: transform 0.2s, border-color 0.2s;
+    transform: translate(-50%, -50%); /* Center the dot on the coordinate */
 }
 
 .calibration-point:hover {
-    transform: scale(1.2);
+    transform: translate(-50%, -50%) scale(1.2); /* Maintain centering while scaling */
 }
 
 .calibration-point.clicked {
